@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="theme-color" content="#0a0a12"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="LexiRead"/>
+<title>LexiRead</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+/* ── RESET & TOKENS ─────────────────────────────────────────────── */
+:root{
+  --bg:#0a0a12; --surface:#12111f; --card:#1c1a2e; --raised:#252340;
+  --accent:#f5c842; --accent2:#ff8c5a; --abg:rgba(245,200,66,.11);
+  --text:#f0eff8; --muted:#8884a8; --dim:#3d3a5c;
+  --danger:#ff5f7a; --ok:#4dffa6; --border:rgba(255,255,255,.07);
+  --st:env(safe-area-inset-top,0px); --sb:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg)}
+body{font-family:'Nunito',sans-serif;color:var(--text);overflow:hidden;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px}
+
+/* ── ANIMATIONS ─────────────────────────────────────────────────── */
+@keyframes fadeIn {from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes spin   {to{transform:rotate(360deg)}}
+@keyframes glow   {0%,100%{box-shadow:-6px 0 18px rgba(245,200,66,.4)}50%{box-shadow:-6px 0 30px rgba(245,200,66,.75)}}
+@keyframes toast  {from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* ── SHELL ──────────────────────────────────────────────────────── */
+#shell{display:flex;flex-direction:column;height:100vh;height:100dvh;padding-top:var(--st)}
+
+/* ── TOPBAR ─────────────────────────────────────────────────────── */
+#topbar{
+  flex-shrink:0;display:flex;align-items:center;gap:10px;
+  padding:11px 15px;
+  background:rgba(10,10,18,.93);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);z-index:30
+}
+.logo{flex:1;font-family:'Playfair Display',serif;font-size:19px;color:var(--accent)}
+.logo small{display:block;font-family:'Nunito',sans-serif;font-size:10px;color:var(--muted);font-weight:400;letter-spacing:1px;text-transform:uppercase;margin-top:-2px}
+#vbtn{
+  display:flex;align-items:center;gap:6px;
+  background:var(--abg);border:1px solid rgba(245,200,66,.25);
+  color:var(--accent);border-radius:50px;padding:7px 14px;
+  font-size:13px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif
+}
+#vbtn:active{opacity:.7}
+
+/* ── READER ─────────────────────────────────────────────────────── */
+#reader{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;position:relative
+}
+
+/* ── UPLOAD SCREEN ──────────────────────────────────────────────── */
+#upload-screen{padding:22px 18px 120px;animation:fadeIn .3s ease}
+.up-hero{
+  border-radius:26px;
+  background:linear-gradient(145deg,#1c1a2e,#14122a);
+  border:1px solid var(--border);
+  padding:38px 20px 32px;text-align:center;position:relative;overflow:hidden
+}
+.up-hero::before{
+  content:'';position:absolute;top:-50px;left:50%;transform:translateX(-50%);
+  width:260px;height:260px;
+  background:radial-gradient(circle,rgba(245,200,66,.09) 0%,transparent 70%);
+  pointer-events:none
+}
+.up-emoji{font-size:60px;display:block;margin-bottom:14px}
+.up-title{font-family:'Playfair Display',serif;font-size:23px;color:var(--text);margin-bottom:8px}
+.up-sub{font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:28px}
+
+/* File input hidden, label is the visible button */
+#file-inp{
+  position:absolute;width:1px;height:1px;
+  opacity:0;overflow:hidden;clip:rect(0,0,0,0);pointer-events:none
+}
+.up-label{
+  display:flex;align-items:center;justify-content:center;gap:11px;
+  background:var(--accent);color:#0a0a12;
+  border-radius:18px;padding:18px 24px;
+  font-size:17px;font-weight:700;font-family:'Nunito',sans-serif;
+  cursor:pointer;box-shadow:0 4px 24px rgba(245,200,66,.35);
+  user-select:none;-webkit-user-select:none;transition:transform .1s
+}
+.up-label:active{transform:scale(0.96)}
+.up-note{margin-top:12px;font-size:12px;color:var(--dim)}
+#up-err{margin-top:10px;font-size:13px;color:var(--danger);min-height:16px}
+
+.how{margin-top:30px}
+.how-head{font-size:10px;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:16px}
+.how-item{display:flex;align-items:flex-start;gap:13px;margin-bottom:13px}
+.hi-ic{width:38px;height:38px;border-radius:12px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.hi-tx{font-size:13px;color:var(--muted);line-height:1.55;padding-top:9px}
+.hi-tx b{color:var(--text);font-weight:600}
+
+/* ── PDF SCREEN ─────────────────────────────────────────────────── */
+#pdf-screen{display:none;padding:10px 0 120px;animation:fadeIn .3s ease}
+.pdf-meta{display:flex;align-items:center;gap:10px;padding:0 12px 12px}
+.back-btn{
+  background:var(--card);border:1px solid var(--border);color:var(--muted);
+  border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;
+  cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap
+}
+.back-btn:active{opacity:.7}
+.fname{flex:1;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pgcnt{font-size:12px;color:var(--dim);flex-shrink:0}
+
+#prog-wrap{text-align:center;padding:40px 20px}
+.prog-lbl{font-size:13px;color:var(--muted);margin-bottom:14px}
+.prog-bar-bg{width:80%;max-width:220px;height:4px;background:var(--dim);border-radius:2px;margin:0 auto;overflow:hidden}
+.prog-bar{height:100%;background:var(--accent);border-radius:2px;width:0%;transition:width .25s}
+
+/*
+  PDF PAGE WRAPPER
+  Each page = position:relative container
+  canvas  = background visual (the PDF image)
+  .txtlyr = transparent overlay with real selectable text, positioned to match canvas
+*/
+.page-wrap{
+  position:relative;
+  margin:0 8px 12px;
+  border-radius:10px;
+  overflow:hidden;
+  box-shadow:0 4px 24px rgba(0,0,0,.55);
+  background:#fff  /* white bg so canvas loads look clean */
+}
+.page-wrap canvas{
+  display:block;width:100%;height:auto;
+  /* canvas is the visual layer */
+}
+.txtlyr{
+  /* Absolutely overlaid on the canvas, same size */
+  position:absolute;inset:0;overflow:hidden;
+  /* Make text invisible but selectable */
+  color:transparent;
+  /* Match canvas coordinate system via transform-origin */
+  transform-origin:top left;
+  line-height:1;
+  user-select:text;-webkit-user-select:text;
+  cursor:text;
+  /* Prevent touch events from going to canvas except for selection */
+  pointer-events:auto;
+}
+.txtlyr span{
+  position:absolute;
+  color:transparent;
+  white-space:pre;
+  cursor:text;
+  /* selection highlight still shows through */
+}
+/* When text is selected, show a subtle highlight so user knows it worked */
+.txtlyr ::selection{background:rgba(245,200,66,.35);color:transparent}
+.txtlyr ::-moz-selection{background:rgba(245,200,66,.35);color:transparent}
+
+/* ── FAB ─────────────────────────────────────────────────────────── */
+#fab{
+  position:fixed;right:0;top:50%;transform:translateY(-50%);
+  z-index:60;width:54px;height:54px;border-radius:50% 0 0 50%;
+  background:var(--accent);border:none;outline:none;
+  font-size:22px;cursor:pointer;display:none;
+  align-items:center;justify-content:center;padding-right:2px;
+  animation:glow 2s ease-in-out infinite;
+  box-shadow:-6px 0 20px rgba(245,200,66,.4)
+}
+
+/* ── LOADING ─────────────────────────────────────────────────────── */
+#loading{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(10,10,18,.78);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px
+}
+.spinner{width:44px;height:44px;border-radius:50%;border:3px solid rgba(245,200,66,.15);border-top-color:var(--accent);animation:spin .75s linear infinite}
+.loading-lbl{font-size:14px;color:var(--muted);font-weight:500}
+
+/* ── BOTTOM SHEET ────────────────────────────────────────────────── */
+#sheet-bg{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.55);display:none;animation:fadeIn .2s ease}
+#sheet{
+  position:fixed;bottom:0;left:0;right:0;z-index:91;
+  background:var(--card);border-top:2px solid var(--accent);
+  border-radius:26px 26px 0 0;
+  padding-bottom:calc(24px + var(--sb));
+  max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  display:none;flex-direction:column;
+  animation:sheetUp .3s cubic-bezier(.25,.46,.45,.94);
+  box-shadow:0 -16px 60px rgba(0,0,0,.7)
+}
+.s-handle{width:44px;height:4px;background:var(--dim);border-radius:2px;margin:14px auto 0;flex-shrink:0}
+.s-in{padding:16px 18px 0}
+.s-toprow{display:flex;align-items:flex-start;gap:12px;margin-bottom:20px}
+.s-word{flex:1;font-family:'Playfair Display',serif;font-size:20px;color:var(--accent);line-height:1.3;word-break:break-word}
+.s-acts{display:flex;gap:9px;flex-shrink:0;padding-top:2px}
+.sact{
+  width:42px;height:42px;border-radius:50%;border:2px solid;background:transparent;
+  font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-family:'Nunito',sans-serif;transition:transform .1s
+}
+.sact:active{transform:scale(.88)}
+.sact.x{border-color:var(--danger);color:var(--danger)}
+.sact.ok{border-color:var(--ok);color:var(--ok)}
+.s-lbl{font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--accent2);margin-bottom:5px}
+.s-val{font-size:14px;color:var(--text);line-height:1.65;margin-bottom:15px}
+.s-em{font-style:italic;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:15px}
+.chip{border-radius:50px;padding:4px 13px;font-size:12px;font-weight:700;font-family:'Nunito',sans-serif}
+.csyn{background:var(--abg);color:var(--accent);border:1px solid rgba(245,200,66,.25)}
+.cant{background:rgba(255,95,122,.1);color:#ff8fa3;border:1px solid rgba(255,95,122,.25)}
+.s-div{border:none;border-top:1px solid var(--border);margin:4px 0 14px}
+
+/* ── TOASTS ──────────────────────────────────────────────────────── */
+#toast,#etost{
+  position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+  z-index:300;border-radius:50px;padding:11px 22px;
+  font-size:14px;font-weight:700;white-space:nowrap;
+  max-width:92vw;text-align:center;display:none;animation:toast .25s ease
+}
+#toast{background:var(--ok);color:#0a0a12;box-shadow:0 4px 20px rgba(77,255,166,.35)}
+#etost{background:var(--danger);color:#fff}
+
+/* ── VOCAB SCREEN ────────────────────────────────────────────────── */
+#vocab-screen{
+  position:fixed;inset:0;z-index:150;background:var(--bg);
+  display:none;flex-direction:column;animation:fadeIn .2s ease;padding-top:var(--st)
+}
+.voc-hdr{
+  flex-shrink:0;display:flex;align-items:center;gap:10px;
+  padding:13px 15px;
+  background:rgba(10,10,18,.93);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border)
+}
+.voc-back{background:none;border:none;color:var(--muted);font-size:26px;cursor:pointer;line-height:1;padding-right:6px}
+.voc-tw{flex:1}
+.voc-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--accent)}
+.voc-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.exp-btn{background:var(--accent);border:none;color:#0a0a12;padding:9px 16px;border-radius:50px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif}
+.exp-btn:active{opacity:.8}
+.voc-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px 80px}
+.voc-empty{text-align:center;padding:70px 20px}
+.ve-ico{font-size:52px;margin-bottom:14px}
+.ve-msg{font-size:15px;color:var(--muted);line-height:1.7}
+.vcard{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px}
+.vcard-word{font-family:'Playfair Display',serif;font-size:17px;color:var(--accent);font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.vnum{font-family:'Nunito',sans-serif;font-size:11px;color:var(--muted);background:var(--raised);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700}
+.vdet{font-size:13px;color:var(--muted);line-height:1.85}
+.vdet strong{color:var(--text);font-weight:600}
+.vdate{font-size:10px;color:var(--dim);margin-top:8px}
+</style>
+</head>
+<body>
+<div id="shell">
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="logo">LexiRead <small>AI PDF Reader</small></div>
+    <button id="vbtn" onclick="openVocab()">📚 <span id="vcnt">0</span></button>
+  </div>
+
+  <div id="reader">
+    <!-- UPLOAD SCREEN -->
+    <div id="upload-screen">
+      <div class="up-hero">
+        <span class="up-emoji">📖</span>
+        <div class="up-title">Read Smarter</div>
+        <div class="up-sub">Upload any PDF. Select words or phrases you don't understand, then tap the gold circle to get their Hindi meaning instantly.</div>
+        <!-- label+hidden-input: only reliable mobile upload method -->
+        <input type="file" id="file-inp" accept="application/pdf" onchange="onFile(event)"/>
+        <label for="file-inp" class="up-label">📂 &nbsp;Upload your Document</label>
+        <div class="up-note">PDF files only &bull; Stays on your device</div>
+        <div id="up-err"></div>
+      </div>
+      <div class="how">
+        <div class="how-head">How it works</div>
+        <div class="how-item"><div class="hi-ic">📄</div><div class="hi-tx"><b>Upload a PDF</b> — tap the button, your phone's file picker opens</div></div>
+        <div class="how-item"><div class="hi-ic">✋</div><div class="hi-tx"><b>Select any text</b> — long-press a word or drag across a phrase to select it</div></div>
+        <div class="how-item"><div class="hi-ic">🔍</div><div class="hi-tx"><b>Tap the gold circle</b> — appears on the right edge of screen after you select text</div></div>
+        <div class="how-item"><div class="hi-ic">💡</div><div class="hi-tx"><b>Get meaning instantly</b> — Hindi meaning, synonyms, antonyms and examples from AI</div></div>
+        <div class="how-item"><div class="hi-ic">💾</div><div class="hi-tx"><b>Save words</b> — tap ✓ to build your vocabulary list. Export as a file anytime</div></div>
+      </div>
+    </div>
+
+    <!-- PDF SCREEN -->
+    <div id="pdf-screen">
+      <div class="pdf-meta">
+        <button class="back-btn" onclick="goBack()">← Back</button>
+        <span class="fname" id="fname"></span>
+        <span class="pgcnt" id="pgcnt"></span>
+      </div>
+      <div id="prog-wrap">
+        <div class="prog-lbl" id="prog-lbl">Loading PDF…</div>
+        <div class="prog-bar-bg"><div class="prog-bar" id="prog-bar"></div></div>
+      </div>
+      <div id="pages-wrap"></div>
+    </div>
+  </div>
+</div>
+
+<!-- FAB -->
+<button id="fab" onclick="onFab()">🔍</button>
+
+<!-- Loading overlay -->
+<div id="loading"><div class="spinner"></div><div class="loading-lbl">Analysing with AI…</div></div>
+
+<!-- Sheet -->
+<div id="sheet-bg" onclick="closeSheet()"></div>
+<div id="sheet">
+  <div class="s-handle"></div>
+  <div class="s-in">
+    <div class="s-toprow">
+      <div class="s-word" id="sh-word"></div>
+      <div class="s-acts">
+        <button class="sact x" onclick="closeSheet()">✕</button>
+        <button class="sact ok" onclick="saveWord()">✓</button>
+      </div>
+    </div>
+    <div class="s-lbl">Hindi Meaning</div><div class="s-val" id="sh-hi"></div>
+    <div class="s-lbl">Synonyms</div><div class="chips" id="sh-syn"></div>
+    <div class="s-lbl">Antonyms</div><div class="chips" id="sh-ant"></div>
+    <div class="s-lbl">Example Sentence</div><div class="s-val s-em" id="sh-ex"></div>
+    <hr class="s-div"/>
+    <div class="s-lbl" id="sh-alt-lbl">Alternative</div>
+    <div class="s-val s-em" id="sh-alt-ex"></div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toast">✓ Saved to vocabulary!</div>
+<div id="etost"></div>
+
+<!-- Vocab screen -->
+<div id="vocab-screen">
+  <div class="voc-hdr">
+    <button class="voc-back" onclick="closeVocab()">←</button>
+    <div class="voc-tw">
+      <div class="voc-title">My Vocabulary</div>
+      <div class="voc-sub" id="voc-sub">0 words</div>
+    </div>
+    <button class="exp-btn" onclick="exportVocab()">↓ Export</button>
+  </div>
+  <div class="voc-body" id="voc-body"></div>
+</div>
+
+<!-- PDF.js CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ── STATE ── */
+var selText     = '';
+var curAnalysis = null;
+var vocabList   = [];
+var VKEY        = 'lexiread_v4';
+
+/* ── BOOT ── */
+window.addEventListener('DOMContentLoaded', function(){
+  loadVocab();
+  setupSelection();
+});
+
+/* ── FILE UPLOAD ── */
+function onFile(e){
+  var file = e.target && e.target.files[0];
+  if(!file) return;
+  if(file.type !== 'application/pdf'){
+    document.getElementById('up-err').textContent = 'Please choose a PDF file.';
+    return;
+  }
+  document.getElementById('up-err').textContent = '';
+  loadPdf(file);
+}
+
+async function loadPdf(file){
+  // Switch to PDF screen
+  document.getElementById('fname').textContent = file.name;
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('pdf-screen').style.display   = 'block';
+  document.getElementById('prog-wrap').style.display    = 'block';
+  document.getElementById('pages-wrap').innerHTML       = '';
+  document.getElementById('prog-bar').style.width       = '0%';
+
+  try {
+    var buf  = await file.arrayBuffer();
+    var pdf  = await pdfjsLib.getDocument({data: buf}).promise;
+    var total = pdf.numPages;
+    document.getElementById('pgcnt').textContent = total + (total===1?' page':' pages');
+
+    for(var i = 1; i <= total; i++){
+      document.getElementById('prog-lbl').textContent = 'Rendering page ' + i + ' of ' + total + '…';
+      await renderPage(pdf, i);
+      document.getElementById('prog-bar').style.width = Math.round(i/total*100) + '%';
+    }
+    document.getElementById('prog-wrap').style.display = 'none';
+
+  } catch(err){
+    document.getElementById('prog-wrap').innerHTML =
+      '<div style="color:var(--danger);font-size:14px;padding:20px">Could not open this PDF. Please try another file.</div>';
+    console.error(err);
+  }
+}
+
+async function renderPage(pdf, pageNum){
+  var page = await pdf.getPage(pageNum);
+
+  /*
+    Scale:
+    - We want the canvas to fill the phone screen width (window.innerWidth - 16px padding)
+    - Multiply by devicePixelRatio for crisp rendering on high-DPI screens
+    - Cap at 2x to avoid freezing on lower-end phones
+  */
+  var pxRatio  = Math.min(window.devicePixelRatio || 1, 2);
+  var cssWidth = window.innerWidth - 16;
+  var baseVP   = page.getViewport({scale: 1});
+  var scale    = (cssWidth / baseVP.width) * pxRatio;
+  var vp       = page.getViewport({scale: scale});
+
+  /* Container */
+  var wrap = document.createElement('div');
+  wrap.className = 'page-wrap';
+
+  /* Canvas — visual layer */
+  var canvas    = document.createElement('canvas');
+  canvas.width  = vp.width;
+  canvas.height = vp.height;
+  canvas.style.display = 'block';
+  canvas.style.width   = '100%';
+  canvas.style.height  = 'auto';
+  wrap.appendChild(canvas);
+
+  /* Text layer div — selectable text overlay */
+  var txtDiv = document.createElement('div');
+  txtDiv.className = 'txtlyr';
+  /* Scale the text layer to match CSS canvas size */
+  var cssH = Math.round(vp.height / pxRatio);
+  txtDiv.style.width  = cssWidth + 'px';
+  txtDiv.style.height = cssH + 'px';
+  wrap.appendChild(txtDiv);
+
+  document.getElementById('pages-wrap').appendChild(wrap);
+
+  /* Render canvas */
+  await page.render({canvasContext: canvas.getContext('2d'), viewport: vp}).promise;
+
+  /* Render text layer using pdf.js TextLayer API */
+  var textContent = await page.getTextContent();
+
+  /*
+    We need a viewport at CSS scale (no pixel ratio) so text positions
+    match the CSS-sized div, not the high-DPI canvas pixels.
+  */
+  var cssScale = cssWidth / baseVP.width;
+  var cssVP    = page.getViewport({scale: cssScale});
+
+  /* pdf.js built-in text layer renderer */
+  var textLayer = new pdfjsLib.renderTextLayer({
+    textContentSource: textContent,
+    container: txtDiv,
+    viewport: cssVP,
+    textDivs: []
+  });
+  await textLayer.promise;
+
+  /* Style each text span so it's invisible but selectable */
+  var spans = txtDiv.querySelectorAll('span');
+  spans.forEach(function(sp){
+    sp.style.color          = 'transparent';
+    sp.style.position       = 'absolute';
+    sp.style.whiteSpace     = 'pre';
+    sp.style.cursor         = 'text';
+    sp.style.userSelect     = 'text';
+    sp.style.webkitUserSelect = 'text';
+    /* Keep the transform that pdf.js set for correct positioning */
+  });
+}
+
+function goBack(){
+  document.getElementById('pdf-screen').style.display = 'none';
+  document.getElementById('upload-screen').style.display = 'block';
+  document.getElementById('pages-wrap').innerHTML = '';
+  document.getElementById('file-inp').value = '';
+  hideFab();
+}
+
+/* ── TEXT SELECTION → FAB ── */
+function setupSelection(){
+  var timer;
+  function check(){
+    if(document.getElementById('sheet').style.display === 'flex') return;
+    var sel = window.getSelection ? window.getSelection() : null;
+    var txt = sel ? sel.toString().trim() : '';
+    if(txt.length > 0 && document.getElementById('pdf-screen').style.display === 'block'){
+      selText = txt;
+      showFab();
+    } else if(txt.length === 0){
+      hideFab();
+    }
+  }
+  document.addEventListener('selectionchange', function(){ clearTimeout(timer); timer = setTimeout(check, 350); });
+  document.addEventListener('touchend',        function(){ clearTimeout(timer); timer = setTimeout(check, 500); });
+}
+
+function showFab(){
+  var f = document.getElementById('fab');
+  f.style.display = 'flex';
+}
+function hideFab(){
+  document.getElementById('fab').style.display = 'none';
+  selText = '';
+}
+
+/* ── FAB → AI ── */
+async function onFab(){
+  if(!selText) return;
+  var query = selText;
+  hideFab();
+  window.getSelection && window.getSelection().removeAllRanges();
+  document.getElementById('loading').style.display = 'flex';
+  try {
+    var data = await callAI(query);
+    curAnalysis = data;
+    document.getElementById('loading').style.display = 'none';
+    openSheet(data);
+  } catch(e){
+    document.getElementById('loading').style.display = 'none';
+    showErr('Could not get meaning. Check your internet and try again.');
+    console.error(e);
+  }
+}
+
+async function callAI(text){
+  var prompt =
+    'You are an English vocabulary assistant for Indian students reading English PDFs.\n' +
+    'The student selected this text: "' + text + '"\n\n' +
+    'Reply with ONLY a raw JSON object. No markdown, no backticks, nothing before or after the JSON.\n\n' +
+    'JSON format:\n' +
+    '{\n' +
+    '  "selected": "<selected text, trimmed>",\n' +
+    '  "hindi_meaning": "<Hindi in Devanagari> (<Roman transliteration>)",\n' +
+    '  "synonyms": ["w1","w2","w3"],\n' +
+    '  "antonyms": ["w1","w2","w3"],\n' +
+    '  "example_sentence": "<one English sentence using the selected text>",\n' +
+    '  "alternative": "<one alternative English word or phrase>",\n' +
+    '  "alternative_example": "<one English sentence using the alternative>"\n' +
+    '}';
+
+  var res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      messages: [{role:'user', content: prompt}]
+    })
+  });
+  var json = await res.json();
+  var raw   = (json.content||[]).map(function(b){return b.text||'';}).join('');
+  var clean = raw.replace(/```json|```/g,'').trim();
+  return JSON.parse(clean);
+}
+
+/* ── SHEET ── */
+function openSheet(d){
+  document.getElementById('sh-word').textContent    = '\u201c' + d.selected + '\u201d';
+  document.getElementById('sh-hi').textContent      = d.hindi_meaning;
+  document.getElementById('sh-syn').innerHTML       = (d.synonyms||[]).map(function(w){return '<span class="chip csyn">'+esc(w)+'</span>';}).join('');
+  document.getElementById('sh-ant').innerHTML       = (d.antonyms||[]).map(function(w){return '<span class="chip cant">'+esc(w)+'</span>';}).join('');
+  document.getElementById('sh-ex').textContent      = d.example_sentence;
+  document.getElementById('sh-alt-lbl').textContent = 'Alternative \u2192 \u201c'+d.alternative+'\u201d';
+  document.getElementById('sh-alt-ex').textContent  = d.alternative_example;
+
+  document.getElementById('sheet-bg').style.display = 'block';
+  var s = document.getElementById('sheet');
+  s.style.display = 'flex'; s.style.flexDirection = 'column';
+}
+function closeSheet(){
+  document.getElementById('sheet').style.display    = 'none';
+  document.getElementById('sheet-bg').style.display = 'none';
+  curAnalysis = null;
+}
+
+/* ── VOCAB ── */
+function loadVocab(){
+  try{ vocabList = JSON.parse(localStorage.getItem(VKEY)||'[]'); } catch(e){ vocabList=[]; }
+  document.getElementById('vcnt').textContent = vocabList.length;
+}
+function saveWord(){
+  if(!curAnalysis) return;
+  vocabList.push(Object.assign({}, curAnalysis, {savedAt: new Date().toISOString()}));
+  try{ localStorage.setItem(VKEY, JSON.stringify(vocabList)); } catch(e){}
+  document.getElementById('vcnt').textContent = vocabList.length;
+  closeSheet(); showToast();
+}
+function showToast(){
+  var t = document.getElementById('toast'); t.style.display='block';
+  setTimeout(function(){t.style.display='none';},2200);
+}
+function showErr(msg){
+  var e = document.getElementById('etost'); e.textContent=msg; e.style.display='block';
+  setTimeout(function(){e.style.display='none';},3500);
+}
+function openVocab(){
+  var n = vocabList.length;
+  document.getElementById('voc-sub').textContent = n + ' word'+(n!==1?'s':'')+' saved';
+  var body = document.getElementById('voc-body');
+  if(n===0){
+    body.innerHTML='<div class="voc-empty"><div class="ve-ico">📖</div><div class="ve-msg">No words saved yet.<br/>Select text while reading<br/>then tap ✓ to save here.</div></div>';
+  } else {
+    body.innerHTML = vocabList.map(function(e,i){
+      return '<div class="vcard">'+
+        '<div class="vcard-word"><span class="vnum">'+(i+1)+'</span>'+esc(e.selected)+'</div>'+
+        '<div class="vdet">'+
+          '<div><strong>Hindi:</strong> '+esc(e.hindi_meaning)+'</div>'+
+          '<div><strong>Synonyms:</strong> '+esc((e.synonyms||[]).join(', '))+'</div>'+
+          '<div><strong>Antonyms:</strong> '+esc((e.antonyms||[]).join(', '))+'</div>'+
+          '<div><strong>Example:</strong> <em>'+esc(e.example_sentence)+'</em></div>'+
+          '<div><strong>Alternative:</strong> '+esc(e.alternative)+' &mdash; <em>'+esc(e.alternative_example)+'</em></div>'+
+        '</div>'+
+        '<div class="vdate">Saved '+new Date(e.savedAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})+'</div>'+
+      '</div>';
+    }).join('');
+  }
+  document.getElementById('vocab-screen').style.display='flex';
+}
+function closeVocab(){ document.getElementById('vocab-screen').style.display='none'; }
+function exportVocab(){
+  if(vocabList.length===0){showErr('No words to export yet.');return;}
+  var txt='MY VOCABULARY \u2014 LexiRead\n'+'='.repeat(50)+'\n';
+  txt+='Total: '+vocabList.length+' words\nExported: '+new Date().toLocaleDateString('en-IN')+'\n\n';
+  vocabList.forEach(function(e,i){
+    txt+=(i+1)+'. '+e.selected.toUpperCase()+'\n';
+    txt+='   Hindi       : '+e.hindi_meaning+'\n';
+    txt+='   Synonyms    : '+(e.synonyms||[]).join(', ')+'\n';
+    txt+='   Antonyms    : '+(e.antonyms||[]).join(', ')+'\n';
+    txt+='   Example     : '+e.example_sentence+'\n';
+    txt+='   Alternative : '+e.alternative+'\n';
+    txt+='   Alt Example : '+e.alternative_example+'\n\n';
+  });
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));
+  a.download='LexiRead-Vocab-'+new Date().toLocaleDateString('en-IN').replace(/\//g,'-')+'.txt';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>
